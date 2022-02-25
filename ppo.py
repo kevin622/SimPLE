@@ -119,7 +119,7 @@ class PPO:
         # self.buffer.logprobs.append(action_logprob)
 
         # return action.item()
-        return action, action_logprob
+        return action.detach(), action_logprob.detach()
 
     def update(self):
         # Monte Carlo estimate of returns

@@ -29,6 +29,7 @@ def main():
     for ith_main_loop in range(1, args.main_loop_iter + 1):
         # collect obersvations from real env
         state = env.reset()
+        breakpoint()
         # TODO 200 should be 6400
         for ith_step in tqdm(range(200)):
             action, action_logprob = ppo_agent.select_action(state)
@@ -46,7 +47,18 @@ def main():
                                                         ith_main_loop, device)
 
         # update policy using world model
-        ppo_agent.update()
+        ppo_epoch = 1000
+        rollout_step_num = 50
+        for ith_epoch in range(1, ppo_epoch + 1):
+            state = env.reset()
+            state = to_tensor(state, device)
+            for ith_step in range(1, rollout_step_num + 1):
+                action, action_logprob = ppo_agent.select_action(state)
+                action = torch.tensor([action]).to(device)
+                output_frame, reward = deterministic_model.get_output_frame_and_reward(state, action, 1, device)
+                state = np.concatenate((state[1:], to_numpy(output_frame)))
+            ppo_agent.update()
+
 
 if __name__ == "__main__":
     main()
