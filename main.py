@@ -1,43 +1,52 @@
-import argparse
-import random
-
-import gym
-from gym.wrappers import FrameStack, ResizeObservation
 import torch
 import numpy as np
+from tqdm import tqdm
 
-from replay_buffer import ReplayBuffer
-from models import WorldModel, Policy
+from buffer import RealEnvBuffer, RolloutBuffer
+from models import DeterministicModel
+from ppo import PPO
+from argument_parser import argument_parse
+from utils import set_global_seed, get_resized_stacked_env, to_numpy, to_tensor
+from train import train_deterministic_model
 
 
 def main():
-    parser = argparse.ArgumentParser(description="SimPLE Args")
-    parser.add_argument("--env_name",
-                        default="Breakout-v0",
-                        help="Name of the environment(default: Breakout-v0)")
-    parser.add_argument("--buffer_size",
-                        default=1000000,
-                        type=int,
-                        help="Size of replay buffer(default: 1,000,000)")
-    parser.add_argument("--seed", default=123456, type=int, help="Random Seed(default: 123456)")
-    args = parser.parse_args()
+    args = argument_parse()
+    env = get_resized_stacked_env(args.env_name)
+    set_global_seed(args.seed, env)
 
-    env = gym.make(args.env_name)
-    env = ResizeObservation(env, (105, 80))
-    env = FrameStack(env, 4)
+    device = torch.device('cuda' if args.cuda else 'cpu')
+    state_dim = env.observation_space.shape[0] * env.observation_space.shape[
+        3]  # (stack size) * (channel size)
+    action_dim = env.action_space.n
 
-    env.seed(args.seed)
-    random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
+    deterministic_model = DeterministicModel(state_dim, action_dim).to(device)
+    real_env_buffer = RealEnvBuffer(args.real_env_buffer_size)
+    rollout_buffer = RolloutBuffer()
+    ppo_agent = PPO(rollout_buffer, state_dim, action_dim, args.lr_actor, args.lr_critic, args.gamma, args.K_epochs,
+                    args.eps_clip, device)
 
-    policy = Policy()
-    world_model = WorldModel(in_channel_size=env.observation_space[0] * 4,
-                                          action_size=env.action_space.n)
-    replay_buffer = ReplayBuffer(args.buffer_size)
+    for ith_main_loop in range(1, args.main_loop_iter + 1):
+        # collect obersvations from real env
+        state = env.reset()
+        # TODO 200 should be 6400
+        for ith_step in tqdm(range(200)):
+            action, action_logprob = ppo_agent.select_action(state)
+            action = action.cpu().item()
+            next_state, reward, is_done, info = env.step(action)
+            real_env_buffer.push(state, action, next_state[0], reward, is_done)
+            state = next_state
 
-    pass
+        # update model using collected data
+        # TODO arbitrary values for hyperparameters
+        world_model_batch_size = 32
+        world_model_lr = 0.003
+        deterministic_model = train_deterministic_model(deterministic_model, world_model_lr,
+                                                        real_env_buffer, world_model_batch_size,
+                                                        ith_main_loop, device)
 
+        # update policy using world model
+        ppo_agent.update()
 
 if __name__ == "__main__":
     main()
