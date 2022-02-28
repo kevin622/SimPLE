@@ -14,7 +14,7 @@ except ImportError:
 from stable_baselines3.common.type_aliases import GymObs, GymStepReturn
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
 from stable_baselines3.common.env_util import make_vec_env
-
+from stable_baselines3.common.vec_env.vec_frame_stack import VecFrameStack
 
 class NoopResetEnv(gym.Wrapper):
     """
@@ -318,3 +318,14 @@ def make_atari_env(
         vec_env_kwargs=vec_env_kwargs,
         monitor_kwargs=monitor_kwargs,
     )
+
+
+def make_vec_stack_atari_env(
+    env_id: Union[str, Type[gym.Env]],
+    n_envs: int = 1,
+    seed: Optional[int] = None,
+    n_stack: int = 4
+):
+    env = make_atari_env(env_id, n_envs=n_envs, seed=seed)
+    env = VecFrameStack(env, n_stack=n_stack)
+    return env

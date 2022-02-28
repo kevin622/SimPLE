@@ -7,6 +7,9 @@ def argument_parse():
     parser.add_argument("--env_name",
                         default="BreakoutDeterministic-v0",
                         help="Name of the environment(default: BreakoutDeterministic-v0)")
+    parser.add_argument("--n_envs",
+                        default=4,
+                        help="Number of parallel environments(default: 4)")
     parser.add_argument("--real_env_buffer_size",
                         default=1000000,
                         type=int,

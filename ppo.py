@@ -84,8 +84,8 @@ class ActorCritic(nn.Module):
 
 class PPO:
 
-    def __init__(self, buffer, state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip,
-                 device):
+    def __init__(self, buffer, state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs,
+                 eps_clip, device):
         self.gamma = gamma
         self.eps_clip = eps_clip
         self.K_epochs = K_epochs
@@ -110,8 +110,7 @@ class PPO:
         with torch.no_grad():
             # TODO This code is assuming only one state is input
             state = torch.FloatTensor(state).reshape(
-                (1, state.shape[0] * state.shape[3], state.shape[1],
-                 state.shape[2])).to(self.device)
+                (state.shape[0], state.shape[3], state.shape[1], state.shape[2])).to(self.device)
             action, action_logprob = self.policy_old.act(state)
 
         # self.buffer.states.append(state)
