@@ -19,6 +19,9 @@ class RealEnvBuffer:
         self.change_idx = (self.change_idx + 1) % self.capacity
     
     def sample(self, size):
+        '''
+        states, actions, next_states, rewards, is_dones
+        '''
         samples = random.sample(self.memory, k=size)
         states, actions, next_states, rewards, is_dones = map(np.stack, zip(*samples))
         return states, actions, next_states, rewards, is_dones

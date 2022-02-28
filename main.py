@@ -50,13 +50,13 @@ def main():
         ppo_epoch = 1000
         rollout_step_num = 50
         for ith_epoch in range(1, ppo_epoch + 1):
-            state = env.reset()
-            state = to_tensor(state, device)
+            state = real_env_buffer.sample(1)[0]
             for ith_step in range(1, rollout_step_num + 1):
                 action, action_logprob = ppo_agent.select_action(state)
-                action = torch.tensor([action]).to(device)
+                state = state.unsqueeze(0) # TODO because d_model gets batch_size too. TRY TO MAKE ANOTHER FUNCTION
                 output_frame, reward = deterministic_model.get_output_frame_and_reward(state, action, 1, device)
-                state = np.concatenate((state[1:], to_numpy(output_frame)))
+                state = state.squeeze(0)
+                state = torch.cat((state[1:], output_frame))
             ppo_agent.update()
 
 

@@ -225,3 +225,4 @@ cython_debug/
 
 temp.py
 temp2.py
+temp*.py
