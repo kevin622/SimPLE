@@ -71,7 +71,8 @@ class DeterministicModel(nn.Module):
 
     def get_output_frame_and_reward(self, stacked_image, action, batch_size, device):
         shape = stacked_image.shape
-        stacked_image = stacked_image.reshape([shape[0], shape[1] * shape[4], shape[2], shape[3]])
+        # batch_size, height, width, channel => batch_size, channel, height, width
+        stacked_image = stacked_image.reshape([shape[0], shape[3], shape[1], shape[2]])
         output_frame, reward = self(stacked_image, action, batch_size)
         return output_frame, reward
 

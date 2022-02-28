@@ -33,8 +33,8 @@ class RolloutBuffer:
     This buffer is emptied everytime the policy is updated.
     '''
     def __init__(self):
-        self.actions = []
         self.states = []
+        self.actions = []
         self.logprobs = []
         self.rewards = []
         self.is_terminals = []
@@ -45,3 +45,10 @@ class RolloutBuffer:
         del self.logprobs[:]
         del self.rewards[:]
         del self.is_terminals[:]
+    
+    def push(self, state, action, logprob, reward, is_terminal):
+        self.states.append(state)
+        self.actions.append(action)
+        self.logprobs.append(logprob)
+        self.rewards.append(reward)
+        self.is_terminals.append(is_terminal)

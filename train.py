@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam
+from tqdm import tqdm
 
 from models import DeterministicModel
 from buffer import RealEnvBuffer
@@ -10,8 +11,10 @@ from utils import to_tensor
 def train_deterministic_model(model: DeterministicModel, lr: float, buffer: RealEnvBuffer,
                               batch_size: int, ith_main_loop: int, device: torch.device):
     optimizer = Adam(model.parameters(), lr)
-    iteration_num = 45000 if ith_main_loop == 1 else 15000
-    for i in range(iteration_num):
+    # TODO
+    # iteration_num = 45000 if ith_main_loop == 1 else 15000
+    iteration_num = 150
+    for _ in tqdm(range(iteration_num)):
         # get samples from buffer
         states, actions, next_states, rewards, is_dones = buffer.sample(batch_size)
         states = to_tensor(states, device)

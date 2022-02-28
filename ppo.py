@@ -106,10 +106,9 @@ class PPO:
 
         self.MseLoss = nn.MSELoss()
 
-    def select_action(self, state):
+    def select_action(self, state: torch.Tensor):
         with torch.no_grad():
-            # TODO This code is assuming only one state is input
-            state = torch.FloatTensor(state).reshape(
+            state = state.reshape(
                 (state.shape[0], state.shape[3], state.shape[1], state.shape[2])).to(self.device)
             action, action_logprob = self.policy_old.act(state)
 
