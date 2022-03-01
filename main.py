@@ -25,7 +25,7 @@ def main():
 
     real_env_buffer = RealEnvBuffer(args.real_env_buffer_size)
     rollout_buffer = RolloutBuffer()
-    ppo_agent = PPO(rollout_buffer, state_dim, action_dim, args.lr_actor, args.lr_critic,
+    ppo_agent = PPO(state_dim, action_dim, args.lr_actor, args.lr_critic,
                     args.gamma, args.K_epochs, args.eps_clip, device)
     deterministic_model = DeterministicModel(state_dim, action_dim).to(device)
 
@@ -63,10 +63,15 @@ def main():
                 action, action_logprob = ppo_agent.select_action(state)
                 output_frame, reward = deterministic_model.get_output_frame_and_reward(
                     state, action, parallel_agents_num, device)
-                # TODO is_terminal is not in the models output
-                rollout_buffer.push(state, action, action_logprob, reward, )
-                state = torch.cat((state[:,:,:,3:], output_frame))
-            ppo_agent.update()
+                if ith_step == rollout_step_num:
+                    state_values = ppo_agent.policy.critic(state)
+                    reward += state_values
+                # is_terminal is False because short rollouts have little possbility to meet the end of the episode
+                for i in range(parallel_agents_num):
+                    # TODO This shouldn't be done! Parallel agents should have different buffers...Shouldn't they?
+                    rollout_buffer.push(state[i], action[i], action_logprob[i], reward[i], False)
+                state = torch.cat((state[:,:,:,3:], output_frame), dim=-1)
+            ppo_agent.update(rollout_buffer)
 
 
 if __name__ == "__main__":

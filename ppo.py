@@ -8,6 +8,8 @@ import torch.nn as nn
 from torch.distributions import MultivariateNormal
 from torch.distributions import Categorical
 
+from buffer import RolloutBuffer
+
 ################################## set device ##################################
 # print("============================================================================================")
 # # set device to cpu or cuda
@@ -84,13 +86,13 @@ class ActorCritic(nn.Module):
 
 class PPO:
 
-    def __init__(self, buffer, state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs,
+    def __init__(self, state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs,
                  eps_clip, device):
         self.gamma = gamma
         self.eps_clip = eps_clip
         self.K_epochs = K_epochs
         self.device = device
-        self.buffer = buffer
+        # self.buffer = buffer
 
         self.policy = ActorCritic(state_dim, action_dim).to(device)
         self.optimizer = torch.optim.Adam([{
@@ -119,12 +121,12 @@ class PPO:
         # return action.item()
         return action.detach(), action_logprob.detach()
 
-    def update(self):
+    def update(self, buffer: RolloutBuffer):
         # Monte Carlo estimate of returns
         rewards = []
         discounted_reward = 0
-        for reward, is_terminal in zip(reversed(self.buffer.rewards),
-                                       reversed(self.buffer.is_terminals)):
+        for reward, is_terminal in zip(reversed(buffer.rewards),
+                                       reversed(buffer.is_terminals)):
             if is_terminal:
                 discounted_reward = 0
             discounted_reward = reward + (self.gamma * discounted_reward)
@@ -135,10 +137,10 @@ class PPO:
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-7)
 
         # convert list to tensor
-        old_states = torch.squeeze(torch.stack(self.buffer.states, dim=0)).detach().to(self.device)
-        old_actions = torch.squeeze(torch.stack(self.buffer.actions,
+        old_states = torch.squeeze(torch.stack(buffer.states, dim=0)).detach().to(self.device)
+        old_actions = torch.squeeze(torch.stack(buffer.actions,
                                                 dim=0)).detach().to(self.device)
-        old_logprobs = torch.squeeze(torch.stack(self.buffer.logprobs,
+        old_logprobs = torch.squeeze(torch.stack(buffer.logprobs,
                                                  dim=0)).detach().to(self.device)
 
         # Optimize policy for K epochs
@@ -171,7 +173,7 @@ class PPO:
         self.policy_old.load_state_dict(self.policy.state_dict())
 
         # clear buffer
-        self.buffer.clear()
+        buffer.clear()
 
     def save(self, checkpoint_path):
         torch.save(self.policy_old.state_dict(), checkpoint_path)
