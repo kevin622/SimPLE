@@ -33,7 +33,7 @@ def main():
         
         # collect obersvations from real env
         state = env.reset()
-        # TODO 200 should be 6400
+        # TODO 200 should be 6400 // args.n_envs
         for ith_step in tqdm(range(200)):
             action, action_logprob = ppo_agent.select_action(to_tensor(state, device))
             breakpoint() # check action type and device

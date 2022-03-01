@@ -138,10 +138,12 @@ class PPO:
 
         # convert list to tensor
         old_states = torch.squeeze(torch.stack(buffer.states, dim=0)).detach().to(self.device)
-        old_actions = torch.squeeze(torch.stack(buffer.actions,
-                                                dim=0)).detach().to(self.device)
-        old_logprobs = torch.squeeze(torch.stack(buffer.logprobs,
-                                                 dim=0)).detach().to(self.device)
+        # old_actions = torch.squeeze(torch.stack(buffer.actions,
+        #                                         dim=0)).detach().to(self.device)
+        # old_logprobs = torch.squeeze(torch.stack(buffer.logprobs,
+        #                                          dim=0)).detach().to(self.device)
+        old_actions = torch.squeeze(torch.tensor(buffer.actions)).detach().to(self.device)
+        old_logprobs = torch.squeeze(torch.tensor(buffer.logprobs)).detach().to(self.device)
 
         # Optimize policy for K epochs
         for _ in range(self.K_epochs):
