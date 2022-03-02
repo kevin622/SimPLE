@@ -7,9 +7,7 @@ def argument_parse():
     parser.add_argument("--env_name",
                         default="BreakoutDeterministic-v0",
                         help="Name of the environment(default: BreakoutDeterministic-v0)")
-    parser.add_argument("--n_envs",
-                        default=4,
-                        help="Number of parallel environments(default: 4)")
+    parser.add_argument("--n_envs", default=4, help="Number of parallel environments(default: 4)")
     parser.add_argument("--real_env_buffer_size",
                         default=1000000,
                         type=int,
@@ -27,15 +25,30 @@ def argument_parse():
                         default=0.2,
                         type=float,
                         help="clip parameter for PPO(default: 0.2)")
-    parser.add_argument("--gamma", default=0.99, type=float, help="discount factor(default: 0.99)")
+    parser.add_argument("--gamma",
+                        default=0.99,
+                        type=float,
+                        help="PPO discount factor(default: 0.99)")
     parser.add_argument("--lr_actor",
                         default=0.0003,
                         type=float,
-                        help="learning rate for actor network(default: 0.0003)")
+                        help="learning rate for PPO actor network(default: 0.0003)")
     parser.add_argument("--lr_critic",
                         default=0.001,
                         type=float,
-                        help="learning rate for critic network(default: 0.001)")
+                        help="learning rate for PPO critic network(default: 0.001)")
+    parser.add_argument("--ppo_epoch",
+                        default=1000,
+                        type=int,
+                        help="Epoch for PPO update in one main loop iteration(default: 1000)")
+    parser.add_argument("--rollout_step_num",
+                        default=50,
+                        type=int,
+                        help="Length of rollouts in world model(default: 50)")
+    parser.add_argument("--parallel_agents_num",
+                        default=16,
+                        type=int,
+                        help="Parallel agents for rollouts in world model(default: 16)")
     parser.add_argument("--cuda", action='store_true', help="whether to use cuda(default: False)")
 
     args = parser.parse_args()

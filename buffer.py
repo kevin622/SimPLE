@@ -52,3 +52,6 @@ class RolloutBuffer:
         self.logprobs.append(logprob)
         self.rewards.append(reward)
         self.is_terminals.append(is_terminal)
+    
+    def __len__(self):
+        return len(self.states)

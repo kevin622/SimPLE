@@ -86,8 +86,8 @@ class ActorCritic(nn.Module):
 
 class PPO:
 
-    def __init__(self, state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs,
-                 eps_clip, device):
+    def __init__(self, state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip,
+                 device):
         self.gamma = gamma
         self.eps_clip = eps_clip
         self.K_epochs = K_epochs
@@ -125,25 +125,35 @@ class PPO:
         # Monte Carlo estimate of returns
         rewards = []
         discounted_reward = 0
-        for reward, is_terminal in zip(reversed(buffer.rewards),
-                                       reversed(buffer.is_terminals)):
+        for reward, is_terminal in zip(reversed(buffer.rewards), reversed(buffer.is_terminals)):
             if is_terminal:
                 discounted_reward = 0
             discounted_reward = reward + (self.gamma * discounted_reward)
             rewards.insert(0, discounted_reward)
 
         # Normalizing the rewards
-        rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
-        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-7)
+        # rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
+        rewards = torch.stack(rewards).to(self.device)
+        breakpoint()
+        rewards = (rewards - rewards.mean(dim=0)) / (rewards.std(dim=0) + 1e-7)
+        rewards = rewards.reshape(rewards.shape[0] * rewards.shape[1])
 
         # convert list to tensor
-        old_states = torch.squeeze(torch.stack(buffer.states, dim=0)).detach().to(self.device)
+        # old_states = torch.squeeze(torch.stack(buffer.states, dim=0)).detach().to(self.device)
         # old_actions = torch.squeeze(torch.stack(buffer.actions,
         #                                         dim=0)).detach().to(self.device)
         # old_logprobs = torch.squeeze(torch.stack(buffer.logprobs,
         #                                          dim=0)).detach().to(self.device)
-        old_actions = torch.squeeze(torch.tensor(buffer.actions)).detach().to(self.device)
-        old_logprobs = torch.squeeze(torch.tensor(buffer.logprobs)).detach().to(self.device)
+        old_states = torch.stack(buffer.states).detach().to(self.device)
+        old_states = old_states.reshape([
+            old_states.shape[0] * old_states.shape[1], old_states.shape[2], old_states.shape[3],
+            old_states.shape[4]
+        ])
+
+        old_actions = torch.stack(buffer.actions).detach().to(self.device)
+        old_actions = old_actions.reshape(old_actions.shape[0] * old_actions.shape[1])
+        old_logprobs = torch.stack(buffer.logprobs).detach().to(self.device)
+        old_logprobs = old_logprobs.reshape(old_logprobs.shape[0] * old_logprobs.shape[1])
 
         # Optimize policy for K epochs
         for _ in range(self.K_epochs):
@@ -152,6 +162,9 @@ class PPO:
             logprobs, state_values, dist_entropy = self.policy.evaluate(old_states, old_actions)
 
             # match state_values tensor dimensions with rewards tensor
+            # rewards = (rewards - rewards.mean(dim=0)) / (rewards.std(dim=0) + 1e-7)
+            # rewards = rewards.reshape(rewards.shape[0] * rewards.shape[1])
+
             state_values = torch.squeeze(state_values)
 
             # Finding the ratio (pi_theta / pi_theta__old)
@@ -168,7 +181,7 @@ class PPO:
 
             # take gradient step
             self.optimizer.zero_grad()
-            loss.mean().backward()
+            loss.mean().backward(retain_graph=True)
             self.optimizer.step()
 
         # Copy new weights into old policy
