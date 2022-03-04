@@ -7,7 +7,7 @@ def argument_parse():
     parser.add_argument("--env_name",
                         default="BreakoutDeterministic-v0",
                         help="Name of the environment(default: BreakoutDeterministic-v0)")
-    parser.add_argument("--n_envs", default=4, help="Number of parallel environments(default: 4)")
+    parser.add_argument("--n_envs", default=8, help="Number of parallel environments(default: 8)")
     parser.add_argument("--real_env_buffer_size",
                         default=1000000,
                         type=int,
@@ -18,9 +18,9 @@ def argument_parse():
                         help="The iteration count of the main loop(default: 15)")
     parser.add_argument("--seed", default=123456, type=int, help="Random Seed(default: 123456)")
     parser.add_argument("--K_epochs",
-                        default=80,
+                        default=4,
                         type=int,
-                        help="update policy for K epochs in one PPO(default: 80)")
+                        help="update policy for K epochs in one PPO(default: 4)")
     parser.add_argument("--eps_clip",
                         default=0.2,
                         type=float,

@@ -33,7 +33,7 @@ def main():
         # update model using collected data
         # TODO arbitrary values for hyperparameters
         world_model_batch_size = 64
-        world_model_lr = 0.003
+        world_model_lr = 3e-4
         train_deterministic_model(deterministic_model, world_model_lr, real_env_buffer,
                                   world_model_batch_size, ith_main_loop, device)
 
@@ -44,5 +44,6 @@ def main():
 
 
 if __name__ == "__main__":
+    # for ease of debug
     with torch.autograd.set_detect_anomaly(True):
         main()

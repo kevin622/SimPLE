@@ -134,9 +134,8 @@ class PPO:
         # Normalizing the rewards
         # rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
         rewards = torch.stack(rewards).to(self.device)
-        breakpoint()
-        rewards = (rewards - rewards.mean(dim=0)) / (rewards.std(dim=0) + 1e-7)
-        rewards = rewards.reshape(rewards.shape[0] * rewards.shape[1])
+        # rewards = (rewards - rewards.mean(dim=0)) / (rewards.std(dim=0) + 1e-7)
+        # rewards = rewards.reshape(rewards.shape[0] * rewards.shape[1])
 
         # convert list to tensor
         # old_states = torch.squeeze(torch.stack(buffer.states, dim=0)).detach().to(self.device)
@@ -151,16 +150,24 @@ class PPO:
         ])
 
         old_actions = torch.stack(buffer.actions).detach().to(self.device)
-        old_actions = old_actions.reshape(old_actions.shape[0] * old_actions.shape[1])
+        old_actions = old_actions.flatten()
+        # old_actions = old_actions.reshape(old_actions.shape[0] * old_actions.shape[1])
         old_logprobs = torch.stack(buffer.logprobs).detach().to(self.device)
-        old_logprobs = old_logprobs.reshape(old_logprobs.shape[0] * old_logprobs.shape[1])
+        old_logprobs = old_logprobs.flatten()
+        # old_logprobs = old_logprobs.reshape(old_logprobs.shape[0] * old_logprobs.shape[1])
 
         # Optimize policy for K epochs
         for _ in range(self.K_epochs):
-
+            
             # Evaluating old actions and values
             logprobs, state_values, dist_entropy = self.policy.evaluate(old_states, old_actions)
-
+            # Add value evaluation to the last rollout 
+            
+            new_rewards = rewards.clone()
+            new_rewards[-1] += state_values[-16:].detach()
+            new_rewards = (new_rewards - new_rewards.mean(dim=0)) / (new_rewards.std(dim=0) + 1e-7)
+            new_rewards = new_rewards.flatten()
+            
             # match state_values tensor dimensions with rewards tensor
             # rewards = (rewards - rewards.mean(dim=0)) / (rewards.std(dim=0) + 1e-7)
             # rewards = rewards.reshape(rewards.shape[0] * rewards.shape[1])
@@ -171,13 +178,13 @@ class PPO:
             ratios = torch.exp(logprobs - old_logprobs.detach())
 
             # Finding Surrogate Loss
-            advantages = rewards - state_values.detach()
+            advantages = new_rewards - state_values.detach()
             surr1 = ratios * advantages
             surr2 = torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip) * advantages
 
             # final loss of clipped objective PPO
             loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(state_values,
-                                                                 rewards) - 0.01 * dist_entropy
+                                                                 new_rewards) - 0.01 * dist_entropy
 
             # take gradient step
             self.optimizer.zero_grad()
