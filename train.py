@@ -1,14 +1,19 @@
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam
+from gym.wrappers.time_limit import TimeLimit
+from stable_baselines3.common.vec_env.vec_frame_stack import VecFrameStack
 from tqdm import tqdm
+import wandb
 
 from models import DeterministicModel
 from buffer import RealEnvBuffer, RolloutBuffer
-from utils import to_tensor
+from utils import to_tensor, to_numpy
 from ppo import PPO
 
-def collect_observations_from_real_env(env, ppo_agent: PPO, n_envs: int, real_env_buffer: RealEnvBuffer, device: torch.device):
+
+def collect_observations_from_real_env(env, ppo_agent: PPO, n_envs: int,
+                                       real_env_buffer: RealEnvBuffer, device: torch.device):
     print('----------------------------------------------------------------')
     print('Collecting Observations from the Real Environment')
     state = env.reset()
@@ -18,12 +23,14 @@ def collect_observations_from_real_env(env, ppo_agent: PPO, n_envs: int, real_en
         next_state, reward, is_done, info = env.step(action)
         for i in range(n_envs):
             real_env_buffer.push(state[i], action[i], next_state[i, :, :, :3], reward[i],
-                                    is_done[i])
+                                 is_done[i])
         state = next_state
     print('Collcecting Done!')
 
+
 def train_deterministic_model(model: DeterministicModel, lr: float, buffer: RealEnvBuffer,
-                              batch_size: int, ith_main_loop: int, device: torch.device):
+                              batch_size: int, ith_main_loop: int, device: torch.device,
+                              use_wandb: bool):
     print('----------------------------------------------------------------')
     print('Training the Deterministic Model with the RealEnvBuffer')
     optimizer = Adam(model.parameters(), lr)
@@ -39,6 +46,9 @@ def train_deterministic_model(model: DeterministicModel, lr: float, buffer: Real
         # get predictions from model
         predicted_states, predicted_rewards = model.get_output_frame_and_reward(
             states, actions, batch_size, device)
+        # TODO normalize => divide by 255 // or use running mean and running std(VecNormalize)
+        # TODO Try weighting these losses -> hyperparameters
+        # TODO wandb x axis setting
         loss_image = F.mse_loss(next_states, predicted_states)
         loss_reward = F.mse_loss(rewards, predicted_rewards)
         loss = loss_image + loss_reward
@@ -47,7 +57,10 @@ def train_deterministic_model(model: DeterministicModel, lr: float, buffer: Real
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        if use_wandb:
+            wandb.log({'Deterministic Model Loss': loss})
     print('Model Trained!')
+
 
 def train_ppo_policy(ppo_agent: PPO,
                      parallel_agents_num: int,
@@ -56,7 +69,8 @@ def train_ppo_policy(ppo_agent: PPO,
                      real_env_buffer: RealEnvBuffer,
                      device: torch.device,
                      ppo_epoch: int = 1000,
-                     rollout_step_num: int = 50):
+                     rollout_step_num: int = 50,
+                     use_wandb: bool = False):
 
     print('----------------------------------------------------------------')
     print('Training the policy with PPO algo')
@@ -71,5 +85,31 @@ def train_ppo_policy(ppo_agent: PPO,
                 [state.shape[0], state.shape[3], state.shape[1], state.shape[2]])
             rollout_buffer.push(reshaped_state, action, action_logprob, reward, False)
             state = torch.cat((state[:, :, :, 3:], output_frame), dim=-1)
-        ppo_agent.update(rollout_buffer)
+        ppo_agent.update(rollout_buffer, use_wandb)
     print('Policy Trained!')
+
+
+def eval_policy(ppo_agent: PPO,
+                env: VecFrameStack,
+                device: torch.device,
+                iter_nums: int = 10,
+                use_wandb: bool = False):
+
+    total_sum_reward = 0
+    for iter_num in range(1, iter_nums + 1):
+        state = env.reset()
+        done = False
+        sum_of_reward = 0
+        while not done:
+            action, _ = ppo_agent.select_action(to_tensor(state, device))
+            next_state, reward, done, _ = env.step(to_numpy(action))
+            state = next_state
+            sum_of_reward += reward[0]
+            if done:
+                total_sum_reward += sum_of_reward
+                print(f'Episode {iter_num} Sum of Reward: {sum_of_reward}')
+    avg_of_reward = total_sum_reward / iter_nums
+
+    print(f'Evaluated for {iter_nums} Episodes, Average Reward: {round(avg_of_reward, 2)}')
+    if use_wandb:
+        wandb.log({f'Average Reward for {iter_nums} Episodes': avg_of_reward})

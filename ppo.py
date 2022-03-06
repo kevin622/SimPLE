@@ -7,38 +7,9 @@ import torch
 import torch.nn as nn
 from torch.distributions import MultivariateNormal
 from torch.distributions import Categorical
+import wandb
 
 from buffer import RolloutBuffer
-
-################################## set device ##################################
-# print("============================================================================================")
-# # set device to cpu or cuda
-# device = torch.device('cpu')
-# if torch.cuda.is_available():
-#     device = torch.device('cuda')
-#     torch.cuda.empty_cache()
-#     print("Device set to : " + str(torch.cuda.get_device_name(device)))
-# else:
-#     print("Device set to : cpu")
-# print("============================================================================================")
-
-
-################################## PPO Policy ##################################
-class RolloutBuffer:
-
-    def __init__(self):
-        self.actions = []
-        self.states = []
-        self.logprobs = []
-        self.rewards = []
-        self.is_terminals = []
-
-    def clear(self):
-        del self.actions[:]
-        del self.states[:]
-        del self.logprobs[:]
-        del self.rewards[:]
-        del self.is_terminals[:]
 
 
 class ActorCritic(nn.Module):
@@ -121,7 +92,7 @@ class PPO:
         # return action.item()
         return action.detach(), action_logprob.detach()
 
-    def update(self, buffer: RolloutBuffer):
+    def update(self, buffer: RolloutBuffer, use_wandb: bool):
         # Monte Carlo estimate of returns
         rewards = []
         discounted_reward = 0
@@ -158,16 +129,16 @@ class PPO:
 
         # Optimize policy for K epochs
         for _ in range(self.K_epochs):
-            
+
             # Evaluating old actions and values
             logprobs, state_values, dist_entropy = self.policy.evaluate(old_states, old_actions)
-            # Add value evaluation to the last rollout 
-            
+            # Add value evaluation to the last rollout
+
             new_rewards = rewards.clone()
             new_rewards[-1] += state_values[-16:].detach()
             new_rewards = (new_rewards - new_rewards.mean(dim=0)) / (new_rewards.std(dim=0) + 1e-7)
             new_rewards = new_rewards.flatten()
-            
+
             # match state_values tensor dimensions with rewards tensor
             # rewards = (rewards - rewards.mean(dim=0)) / (rewards.std(dim=0) + 1e-7)
             # rewards = rewards.reshape(rewards.shape[0] * rewards.shape[1])
@@ -183,13 +154,16 @@ class PPO:
             surr2 = torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip) * advantages
 
             # final loss of clipped objective PPO
-            loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(state_values,
-                                                                 new_rewards) - 0.01 * dist_entropy
+            loss = torch.mean(-torch.min(surr1, surr2) +
+                              0.5 * self.MseLoss(state_values, new_rewards) - 0.01 * dist_entropy)
 
             # take gradient step
             self.optimizer.zero_grad()
-            loss.mean().backward(retain_graph=True)
+            loss.backward(retain_graph=True)
             self.optimizer.step()
+
+            if use_wandb:
+                wandb.log({"PPO loss": loss})
 
         # Copy new weights into old policy
         self.policy_old.load_state_dict(self.policy.state_dict())

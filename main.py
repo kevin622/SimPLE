@@ -1,20 +1,27 @@
 import torch
+import wandb
 
 from buffer import RealEnvBuffer, RolloutBuffer
 from models import DeterministicModel
 from ppo import PPO
 from argument_parser import argument_parse
 from utils import set_global_seed
-from train import collect_observations_from_real_env, train_deterministic_model, train_ppo_policy
+from train import collect_observations_from_real_env, train_deterministic_model, train_ppo_policy, eval_policy
 from env import make_vec_stack_atari_env
 
 
 def main():
     args = argument_parse()
 
+    if args.wandb:
+        wandb.init(project=args.wandb_project, entity=args.wandb_id)
+        wandb.config = {i: args.__getattribute__(i) for i in dir(args) if not i.startswith('_')}
+
     env = make_vec_stack_atari_env(args.env_name, args.n_envs)
     state_dim = env.observation_space.shape[2]
     action_dim = env.action_space.n
+    eval_env = make_vec_stack_atari_env("BreakoutDeterministic-v0", 1,
+                                        args.seed)  # Environment for evaluation
 
     set_global_seed(args.seed, env)
 
@@ -35,12 +42,15 @@ def main():
         world_model_batch_size = 64
         world_model_lr = 3e-4
         train_deterministic_model(deterministic_model, world_model_lr, real_env_buffer,
-                                  world_model_batch_size, ith_main_loop, device)
+                                  world_model_batch_size, ith_main_loop, device, args.wandb)
 
         # update policy using world model
         rollout_buffer = RolloutBuffer()
         train_ppo_policy(ppo_agent, args.parallel_agents_num, deterministic_model, rollout_buffer,
-                         real_env_buffer, device, args.ppo_epoch, args.rollout_step_num)
+                         real_env_buffer, device, args.ppo_epoch, args.rollout_step_num, args.wandb)
+
+        # Evaluatate the policy by making rollouts
+        eval_policy(ppo_agent, eval_env, device, args.eval_iter_num, args.wandb)
 
 
 if __name__ == "__main__":

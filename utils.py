@@ -21,5 +21,5 @@ def get_resized_stacked_env(env_name: str):
 def to_numpy(tensor: torch.Tensor):
     return tensor.cpu().numpy()
 
-def to_tensor(array: np.ndarray, device):
+def to_tensor(array: np.ndarray, device: torch.device):
     return torch.FloatTensor(array).to(device)

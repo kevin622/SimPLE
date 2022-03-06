@@ -49,7 +49,14 @@ def argument_parse():
                         default=16,
                         type=int,
                         help="Parallel agents for rollouts in world model(default: 16)")
+    parser.add_argument("--eval_iter_num",
+                        default=10,
+                        type=int,
+                        help="Number of episodes for evaluation(default: 10)")
     parser.add_argument("--cuda", action='store_true', help="whether to use cuda(default: False)")
+    parser.add_argument("--wandb", action='store_true', help="whether to use wandb(default: False)")
+    parser.add_argument("--wandb_project", default=None, help="WANDB project name(default: None)")
+    parser.add_argument("--wandb_id", default=None, help="WANDB id name(default: None)")
 
     args = parser.parse_args()
     return args
