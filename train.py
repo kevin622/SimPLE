@@ -48,8 +48,8 @@ def train_deterministic_model(model: DeterministicModel, lr: float, buffer: Real
         predicted_states, predicted_rewards = model.get_output_frame_and_reward(
             states, actions, batch_size, device)
         # TODO Try weighting these losses -> hyperparameters
-        # TODO wandb x axis setting
-        loss_image = F.mse_loss(next_states, predicted_states)
+        # loss_image = F.mse_loss(next_states, predicted_states)
+        loss_image = torch.square(next_states - predicted_states).clamp(min=10.).mean()
         loss_reward = F.mse_loss(rewards, predicted_rewards)
         loss = loss_image + loss_reward
 
