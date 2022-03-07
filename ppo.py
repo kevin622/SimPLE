@@ -92,7 +92,7 @@ class PPO:
         # return action.item()
         return action.detach(), action_logprob.detach()
 
-    def update(self, buffer: RolloutBuffer, use_wandb: bool):
+    def update(self, buffer: RolloutBuffer):
         # Monte Carlo estimate of returns
         rewards = []
         discounted_reward = 0
@@ -127,8 +127,9 @@ class PPO:
         old_logprobs = old_logprobs.flatten()
         # old_logprobs = old_logprobs.reshape(old_logprobs.shape[0] * old_logprobs.shape[1])
 
+        sum_of_losses = 0
         # Optimize policy for K epochs
-        for _ in range(self.K_epochs):
+        for kth_epoch in range(self.K_epochs):
 
             # Evaluating old actions and values
             logprobs, state_values, dist_entropy = self.policy.evaluate(old_states, old_actions)
@@ -162,14 +163,15 @@ class PPO:
             loss.backward(retain_graph=True)
             self.optimizer.step()
 
-            if use_wandb:
-                wandb.log({"PPO loss": loss})
+            sum_of_losses += loss.item()
 
         # Copy new weights into old policy
         self.policy_old.load_state_dict(self.policy.state_dict())
 
         # clear buffer
         buffer.clear()
+        mean_of_losses = sum_of_losses / self.K_epochs
+        return mean_of_losses
 
     def save(self, checkpoint_path):
         torch.save(self.policy_old.state_dict(), checkpoint_path)
