@@ -19,7 +19,7 @@ def collect_observations_from_real_env(env, ppo_agent: PPO, n_envs: int,
     state = env.reset()
     for ith_step in tqdm(range(6400 // n_envs)):
         action, action_logprob = ppo_agent.select_action(to_tensor(state, device))
-        action = action.cpu().numpy()
+        action = to_numpy(action)
         next_state, reward, is_done, info = env.step(action)
         for i in range(n_envs):
             real_env_buffer.push(state[i], action[i], next_state[i, :, :, :3], reward[i],
@@ -35,7 +35,8 @@ def train_deterministic_model(model: DeterministicModel, lr: float, buffer: Real
     print('Training the Deterministic Model with the RealEnvBuffer')
     optimizer = Adam(model.parameters(), lr)
     iteration_num = 45000 if ith_main_loop == 1 else 15000
-    for _ in tqdm(range(iteration_num // batch_size)):
+    # for _ in tqdm(range(iteration_num // batch_size)):
+    for _ in tqdm(range(iteration_num)):
         # get samples from buffer
         states, actions, next_states, rewards, is_dones = buffer.sample(batch_size)
         states = to_tensor(states, device)
@@ -98,14 +99,15 @@ def eval_policy(ppo_agent: PPO,
     total_sum_reward = 0
     for iter_num in range(1, iter_nums + 1):
         state = env.reset()
-        done = False
+        done = [False]
         sum_of_reward = 0
-        while not done:
+        while not done[0]:
             action, _ = ppo_agent.select_action(to_tensor(state, device))
             next_state, reward, done, _ = env.step(to_numpy(action))
+            breakpoint()
             state = next_state
             sum_of_reward += reward[0]
-            if done:
+            if done[0]:
                 total_sum_reward += sum_of_reward
                 print(f'Episode {iter_num} Sum of Reward: {sum_of_reward}')
     avg_of_reward = total_sum_reward / iter_nums

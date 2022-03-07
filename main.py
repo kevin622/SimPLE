@@ -14,8 +14,9 @@ def main():
     args = argument_parse()
 
     if args.wandb:
-        wandb.init(project=args.wandb_project, entity=args.wandb_id)
-        wandb.config = {i: args.__getattribute__(i) for i in dir(args) if not i.startswith('_')}
+        wandb.init(project=args.wandb_project, entity=args.wandb_id, config={})
+        wandb.config.update(args)
+        # wandb.config = {i: args.__getattribute__(i) for i in dir(args) if not i.startswith('_')}
 
     env = make_vec_stack_atari_env(args.env_name, args.n_envs)
     state_dim = env.observation_space.shape[2]
@@ -49,7 +50,7 @@ def main():
         train_ppo_policy(ppo_agent, args.parallel_agents_num, deterministic_model, rollout_buffer,
                          real_env_buffer, device, args.ppo_epoch, args.rollout_step_num, args.wandb)
 
-        # Evaluatate the policy by making rollouts
+        # Evaluatate the policy by making rollouts on eval_env
         eval_policy(ppo_agent, eval_env, device, args.eval_iter_num, args.wandb)
 
 
